@@ -4,12 +4,18 @@ import { authOptions } from '@/lib/auth'
 import { getDb } from '@/lib/db'
 import { cookies } from 'next/headers'
 
+type PatientAccess = { user_id: number | null; session_token: string | null }
+
+async function q<T>(promise: Promise<unknown>): Promise<T[]> {
+  return promise as unknown as T[]
+}
+
 async function canAccessPatient(patientId: number): Promise<boolean> {
   const session = await getServerSession(authOptions)
-  const db = getDb()
+  const sql = await getDb()
 
-  const patient = db.prepare('SELECT user_id, session_token FROM patients WHERE id = ?')
-    .get(patientId) as { user_id: number | null; session_token: string | null } | undefined
+  const rows = await q<PatientAccess>(sql`SELECT user_id, session_token FROM patients WHERE id = ${patientId}`)
+  const patient = rows[0]
 
   if (!patient) return false
   if (session?.user?.role === 'admin') return true
@@ -31,18 +37,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   }
 
-  const db = getDb()
-  const patient = db.prepare('SELECT * FROM patients WHERE id = ?').get(patientId)
-  const analyses = db.prepare(`
+  const sql = await getDb()
+  const patientRows = await q<Record<string, unknown>>(sql`SELECT * FROM patients WHERE id = ${patientId}`)
+  const analyses = await sql`
     SELECT a.*, COUNT(i.id) as nb_indicateurs
     FROM analyses a
     LEFT JOIN indicateurs i ON i.analyse_id = a.id
-    WHERE a.patient_id = ?
+    WHERE a.patient_id = ${patientId}
     GROUP BY a.id
     ORDER BY a.date_analyse DESC
-  `).all(patientId)
+  `
 
-  return NextResponse.json({ patient, analyses })
+  return NextResponse.json({ patient: patientRows[0], analyses })
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -53,6 +59,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   }
 
-  getDb().prepare('DELETE FROM patients WHERE id = ?').run(patientId)
+  const sql = await getDb()
+  await sql`DELETE FROM patients WHERE id = ${patientId}`
   return NextResponse.json({ ok: true })
 }

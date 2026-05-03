@@ -5,11 +5,17 @@ import { getDb } from '@/lib/db'
 import { cookies } from 'next/headers'
 import { IndicateurEvolution } from '@/lib/types'
 
+type PatientAccess = { user_id: number | null; session_token: string | null }
+
+async function q<T>(promise: Promise<unknown>): Promise<T[]> {
+  return promise as unknown as T[]
+}
+
 async function canAccessPatient(patientId: number): Promise<boolean> {
   const session = await getServerSession(authOptions)
-  const db = getDb()
-  const patient = db.prepare('SELECT user_id, session_token FROM patients WHERE id = ?')
-    .get(patientId) as { user_id: number | null; session_token: string | null } | undefined
+  const sql = await getDb()
+  const rows = await q<PatientAccess>(sql`SELECT user_id, session_token FROM patients WHERE id = ${patientId}`)
+  const patient = rows[0]
   if (!patient) return false
   if (session?.user?.role === 'admin') return true
   if (session?.user?.id && patient.user_id === parseInt(session.user.id)) return true
@@ -28,20 +34,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ patient
     return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   }
 
-  const db = getDb()
-  const rows = db.prepare(`
+  const sql = await getDb()
+  const rows = await q<{
+    nom: string; categorie: string | null; valeur: number | null; valeur_texte: string | null
+    unite: string | null; ref_min: number | null; ref_max: number | null; ref_texte: string | null
+    date_analyse: string; analyse_id: number
+  }>(sql`
     SELECT i.nom, i.categorie, i.valeur, i.valeur_texte, i.unite,
            i.ref_min, i.ref_max, i.ref_texte,
            a.date_analyse, a.id as analyse_id
     FROM indicateurs i
     JOIN analyses a ON a.id = i.analyse_id
-    WHERE a.patient_id = ?
+    WHERE a.patient_id = ${pid}
     ORDER BY i.nom, a.date_analyse ASC
-  `).all(pid) as Array<{
-    nom: string; categorie: string | null; valeur: number | null; valeur_texte: string | null
-    unite: string | null; ref_min: number | null; ref_max: number | null; ref_texte: string | null
-    date_analyse: string; analyse_id: number
-  }>
+  `)
 
   const map = new Map<string, IndicateurEvolution>()
   for (const row of rows) {

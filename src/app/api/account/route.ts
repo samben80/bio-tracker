@@ -7,17 +7,17 @@ export async function GET() {
   const session = await getServerSession(authOptions)
   if (!session?.user?.id) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-  const db = getDb()
+  const sql = await getDb()
   const userId = parseInt(session.user.id)
 
-  const patients = db.prepare(`
+  const patients = await sql`
     SELECT p.*, COUNT(DISTINCT a.id) as nb_analyses, MAX(a.date_analyse) as derniere_analyse
     FROM patients p
     LEFT JOIN analyses a ON a.patient_id = p.id
-    WHERE p.user_id = ?
+    WHERE p.user_id = ${userId}
     GROUP BY p.id
-    ORDER BY p.relation = 'self' DESC, p.nom
-  `).all(userId)
+    ORDER BY (p.relation = 'self') DESC, p.nom
+  `
 
   return NextResponse.json({ email: session.user.email, role: session.user.role, patients })
 }

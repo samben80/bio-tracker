@@ -20,9 +20,9 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null
-        const db = getDb()
-        const user = db.prepare('SELECT * FROM users WHERE email = ?')
-          .get(credentials.email.toLowerCase().trim()) as DbUser | undefined
+        const sql = await getDb()
+        const rows = (await sql`SELECT * FROM users WHERE email = ${credentials.email.toLowerCase().trim()}`) as unknown as DbUser[]
+        const user = rows[0]
         if (!user) return null
         const ok = await bcrypt.compare(credentials.password, user.password_hash)
         if (!ok) return null
@@ -48,7 +48,6 @@ export const authOptions: NextAuthOptions = {
   },
 }
 
-// Extend next-auth types
 declare module 'next-auth' {
   interface Session {
     user: { id: string; email: string; role: string; name?: string | null; image?: string | null }

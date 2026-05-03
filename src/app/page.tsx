@@ -14,23 +14,23 @@ interface PatientRow {
 type SessionType = { user: { id: string; email: string; role: string } } | null
 
 async function getPatients(session: SessionType, sessionToken: string | null): Promise<PatientRow[]> {
-  const db = getDb()
+  const sql = await getDb()
   if (session?.user?.role === 'admin') return []
   if (session?.user?.id) {
-    return db.prepare(`
+    return await sql`
       SELECT p.*, COUNT(DISTINCT a.id) as nb_analyses, MAX(a.date_analyse) as derniere_analyse
       FROM patients p LEFT JOIN analyses a ON a.patient_id = p.id
-      WHERE p.user_id = ?
-      GROUP BY p.id ORDER BY p.relation = 'self' DESC, p.nom
-    `).all(parseInt(session.user.id)) as PatientRow[]
+      WHERE p.user_id = ${parseInt(session.user.id)}
+      GROUP BY p.id ORDER BY (p.relation = 'self') DESC, p.nom
+    ` as unknown as PatientRow[]
   }
   if (sessionToken) {
-    return db.prepare(`
+    return await sql`
       SELECT p.*, COUNT(DISTINCT a.id) as nb_analyses, MAX(a.date_analyse) as derniere_analyse
       FROM patients p LEFT JOIN analyses a ON a.patient_id = p.id
-      WHERE p.session_token = ? AND p.user_id IS NULL
+      WHERE p.session_token = ${sessionToken} AND p.user_id IS NULL
       GROUP BY p.id ORDER BY p.nom
-    `).all(sessionToken) as PatientRow[]
+    ` as unknown as PatientRow[]
   }
   return []
 }
@@ -145,7 +145,6 @@ export default async function HomePage() {
   )
 }
 
-// Client component for adding a family member
 function AddFamilyMember() {
   return (
     <Link href="/patients/add"
