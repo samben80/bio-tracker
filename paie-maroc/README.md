@@ -13,6 +13,8 @@ npm run dev        # http://localhost:3000
 npm test           # moteur de calcul et exports
 ```
 
+Mise en ligne, environnements production et test, et bouton de mise à jour : voir [DEPLOIEMENT.md](DEPLOIEMENT.md).
+
 Au premier lancement, un dossier de démonstration (société fictive, 6 salariés, juillet à octobre 2026)
 est créé dans `data/paie.json`. Menu **Sauvegarde** : dossier vierge, export ou restauration.
 `PAIE_DATA_FILE` permet de choisir l'emplacement du fichier de données.
@@ -32,6 +34,7 @@ est créé dans `data/paie.json`. Menu **Sauvegarde** : dossier vierge, export o
 | États | Journal de paie, récapitulatif par rubrique, ordre de virement, écriture comptable CGNC (6171, 6174, 4441, 4443, 4445, 4452, 4432…), exports CSV |
 | Documents RH | Attestation de travail, attestation de salaire, certificat de travail, reçu pour solde de tout compte (congés, préavis, indemnité de licenciement art. 53, dommages-intérêts art. 41) reporté sur le dernier bulletin |
 | Outils | Simulateur brut → net et net → brut, suivi des congés payés (art. 231 et 241) |
+| Exploitation | Connexion par mot de passe (utilisateur, administrateur), stockage Postgres (Neon) ou fichier, page « Mises à jour » : vérification de la dernière version publiée, installation et retour arrière |
 
 ## Règles de calcul (paramètres par défaut, 2026)
 
@@ -55,14 +58,13 @@ est créé dans `data/paie.json`. Menu **Sauvegarde** : dossier vierge, export o
   télédéclaration, notamment l'identifiant de transfert du préétabli et la clé de contrôle.
 - **XML 9421** : il faut le valider avec le validateur SIMPL-IR, car le schéma XSD peut évoluer.
 - **Hors périmètre de cette version** :
-  - authentification et gestion des droits ;
+  - comptes nominatifs (deux mots de passe partagés pour l'instant : utilisateur et administrateur) ;
   - multi-sociétés ;
   - régularisation annuelle de l'IR ;
   - absences maladie indemnisées par la CNSS ;
   - prêts avec échéancier ;
   - pièces jointes numérisées.
-- **Stockage** : un fichier JSON local, adapté à un poste ou un serveur unique. Pour un hébergement serverless (Vercel), il faut remplacer
-  `src/lib/store.ts` par une base de données.
+- **Stockage** : Postgres (Neon) dès que `DATABASE_URL` est défini, sinon un fichier JSON local.
 
 ## Architecture
 

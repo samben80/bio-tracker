@@ -1,6 +1,7 @@
 import { csvCimr, csvComptable, csvJournal, csvVirements } from '@/lib/exports/autres'
 import { genererFichierBds, preparerDeclarationCnss } from '@/lib/exports/cnss'
 import { genererXml9421 } from '@/lib/exports/ir'
+import { sessionCourante } from '@/lib/auth'
 import { lireBase } from '@/lib/store'
 
 function fichier(contenu: string, nom: string, type: string) {
@@ -15,6 +16,9 @@ function fichier(contenu: string, nom: string, type: string) {
 
 export async function GET(req: Request, ctx: RouteContext<'/api/export/[type]'>) {
   const { type } = await ctx.params
+  const session = await sessionCourante()
+  if (!session) return new Response('Non authentifié', { status: 401 })
+  if (type === 'sauvegarde' && session.role !== 'admin') return new Response('Réservé à l\'administrateur', { status: 403 })
   const q = new URL(req.url).searchParams
   const db = await lireBase()
   const periode = db.periodes.find((p) => p.id === q.get('periode'))

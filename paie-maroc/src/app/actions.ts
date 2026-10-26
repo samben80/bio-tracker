@@ -8,7 +8,8 @@ import { PARAMETRES_DEFAUT, RUBRIQUES_DEFAUT, SOCIETE_VIDE } from '@/lib/paie/de
 import { nouveauSalarie, presentSurPeriode } from '@/lib/paie/salarie'
 import { calculerSoldeToutCompte, type MotifSortie } from '@/lib/paie/stc'
 import type { BaseDonnees, ElementFixe, PeriodePaie, Rubrique, Salarie, SituationCnss, TypePlafond, VariablesMois } from '@/lib/paie/types'
-import { modifierBase, remplacerBase } from '@/lib/store'
+import { exigerSession } from '@/lib/auth'
+import { dossierVierge, modifierBase, remplacerBase } from '@/lib/store'
 
 const nombre = (v: FormDataEntryValue | null) => {
   const n = Number(String(v ?? '').replace(/\s/g, '').replace(',', '.'))
@@ -53,6 +54,7 @@ const rafraichir = () => revalidatePath('/', 'layout')
 // ───────────── Société et paramètres ─────────────
 
 export async function enregistrerSociete(fd: FormData) {
+  await exigerSession('admin')
   await modifierBase((db) => {
     db.societe = appliquerFormulaire({ ...SOCIETE_VIDE, ...db.societe }, fd)
   })
@@ -60,6 +62,7 @@ export async function enregistrerSociete(fd: FormData) {
 }
 
 export async function enregistrerParametres(fd: FormData) {
+  await exigerSession('admin')
   await modifierBase((db) => {
     db.parametres = appliquerFormulaire(structuredClone(db.parametres), fd)
   })
@@ -67,6 +70,7 @@ export async function enregistrerParametres(fd: FormData) {
 }
 
 export async function reinitialiserParametres() {
+  await exigerSession('admin')
   await modifierBase((db) => {
     db.parametres = structuredClone(PARAMETRES_DEFAUT)
   })
@@ -76,6 +80,7 @@ export async function reinitialiserParametres() {
 // ───────────── Rubriques ─────────────
 
 export async function enregistrerRubrique(fd: FormData) {
+  await exigerSession('admin')
   const origine = texte(fd.get('origine'))
   const r: Rubrique = {
     code: texte(fd.get('code')),
@@ -104,6 +109,7 @@ export async function enregistrerRubrique(fd: FormData) {
 }
 
 export async function reinitialiserRubriques() {
+  await exigerSession('admin')
   await modifierBase((db) => {
     const codes = new Set(db.rubriques.map((r) => r.code))
     for (const r of RUBRIQUES_DEFAUT) if (!codes.has(r.code)) db.rubriques.push(structuredClone(r))
@@ -115,6 +121,7 @@ export async function reinitialiserRubriques() {
 // ───────────── Salariés ─────────────
 
 export async function enregistrerSalarie(id: string, fd: FormData) {
+  await exigerSession()
   const nouvelId = await modifierBase((db) => {
     const existant = db.salaries.find((s) => s.id === id)
     const s: Salarie = appliquerFormulaire(structuredClone(existant ?? nouveauSalarie()), fd)
@@ -136,6 +143,7 @@ export async function enregistrerSalarie(id: string, fd: FormData) {
 }
 
 export async function supprimerSalarie(id: string) {
+  await exigerSession()
   await modifierBase((db) => {
     if (db.periodes.some((p) => p.bulletins[id])) throw new Error('Ce salarié a des bulletins : enregistrez plutôt une date de sortie.')
     db.salaries = db.salaries.filter((s) => s.id !== id)
@@ -146,6 +154,7 @@ export async function supprimerSalarie(id: string) {
 }
 
 export async function ajouterDocument(salarieId: string, fd: FormData) {
+  await exigerSession()
   await modifierBase((db) => {
     const s = db.salaries.find((x) => x.id === salarieId)
     if (!s) throw new Error('Salarié introuvable')
@@ -163,6 +172,7 @@ export async function ajouterDocument(salarieId: string, fd: FormData) {
 }
 
 export async function supprimerDocument(salarieId: string, docId: string) {
+  await exigerSession()
   await modifierBase((db) => {
     const s = db.salaries.find((x) => x.id === salarieId)
     if (s) s.documents = s.documents.filter((d) => d.id !== docId)
@@ -180,6 +190,7 @@ function periodeModifiable(db: BaseDonnees, id: string): PeriodePaie {
 }
 
 export async function ouvrirPeriode(fd: FormData) {
+  await exigerSession()
   const id = texte(fd.get('periode'))
   if (!/^\d{4}-\d{2}$/.test(id)) throw new Error('Période invalide')
   await modifierBase((db) => {
@@ -197,6 +208,7 @@ export async function ouvrirPeriode(fd: FormData) {
 const CHAMPS_GRILLE = ['joursTravailles', 'heuresTravaillees', 'joursAbsenceNonPayee', 'joursConges', 'hs25', 'hs50', 'hs100', 'avance'] as const
 
 export async function enregistrerGrille(periodeId: string, fd: FormData) {
+  await exigerSession()
   await modifierBase((db) => {
     const p = periodeModifiable(db, periodeId)
     for (const s of db.salaries) {
@@ -212,6 +224,7 @@ export async function enregistrerGrille(periodeId: string, fd: FormData) {
 }
 
 export async function enregistrerVariablesSalarie(periodeId: string, salarieId: string, fd: FormData) {
+  await exigerSession()
   await modifierBase((db) => {
     const p = periodeModifiable(db, periodeId)
     const s = db.salaries.find((x) => x.id === salarieId)
@@ -228,6 +241,7 @@ export async function enregistrerVariablesSalarie(periodeId: string, salarieId: 
 }
 
 export async function ajouterSalariePeriode(periodeId: string, salarieId: string) {
+  await exigerSession()
   await modifierBase((db) => {
     const p = periodeModifiable(db, periodeId)
     const s = db.salaries.find((x) => x.id === salarieId)
@@ -237,6 +251,7 @@ export async function ajouterSalariePeriode(periodeId: string, salarieId: string
 }
 
 export async function retirerSalariePeriode(periodeId: string, salarieId: string) {
+  await exigerSession()
   await modifierBase((db) => {
     const p = periodeModifiable(db, periodeId)
     delete p.variables[salarieId]
@@ -246,6 +261,7 @@ export async function retirerSalariePeriode(periodeId: string, salarieId: string
 }
 
 export async function calculerPeriode(periodeId: string) {
+  await exigerSession()
   await modifierBase((db) => {
     const p = periodeModifiable(db, periodeId)
     p.bulletins = {}
@@ -259,6 +275,7 @@ export async function calculerPeriode(periodeId: string) {
 }
 
 export async function cloturerPeriode(periodeId: string) {
+  await exigerSession()
   await modifierBase((db) => {
     const p = periodeModifiable(db, periodeId)
     if (p.statut !== 'CALCULEE') throw new Error('Calculez la paie avant de clôturer')
@@ -269,6 +286,7 @@ export async function cloturerPeriode(periodeId: string) {
 }
 
 export async function rouvrirPeriode(periodeId: string) {
+  await exigerSession()
   await modifierBase((db) => {
     const p = db.periodes.find((x) => x.id === periodeId)
     if (p?.statut === 'CLOTUREE') {
@@ -280,6 +298,7 @@ export async function rouvrirPeriode(periodeId: string) {
 }
 
 export async function supprimerPeriode(periodeId: string) {
+  await exigerSession()
   await modifierBase((db) => {
     periodeModifiable(db, periodeId)
     db.periodes = db.periodes.filter((p) => p.id !== periodeId)
@@ -291,6 +310,7 @@ export async function supprimerPeriode(periodeId: string) {
 // ───────────── Sauvegarde ─────────────
 
 export async function importerSauvegarde(fd: FormData) {
+  await exigerSession('admin')
   const fichier = fd.get('fichier')
   if (!(fichier instanceof File) || fichier.size === 0) throw new Error('Aucun fichier sélectionné')
   const db = JSON.parse(await fichier.text()) as BaseDonnees
@@ -301,20 +321,15 @@ export async function importerSauvegarde(fd: FormData) {
 }
 
 export async function chargerDemo() {
+  await exigerSession('admin')
   await remplacerBase(donneesDemo())
   rafraichir()
   redirect('/')
 }
 
 export async function nouveauDossier() {
-  await remplacerBase({
-    version: 1,
-    societe: structuredClone(SOCIETE_VIDE),
-    parametres: structuredClone(PARAMETRES_DEFAUT),
-    rubriques: structuredClone(RUBRIQUES_DEFAUT),
-    salaries: [],
-    periodes: [],
-  })
+  await exigerSession('admin')
+  await remplacerBase(dossierVierge())
   rafraichir()
   redirect('/societe')
 }
@@ -322,6 +337,7 @@ export async function nouveauDossier() {
 // ───────────── Sortie du salarié ─────────────
 
 export async function reporterSoldeToutCompte(salarieId: string, fd: FormData) {
+  await exigerSession()
   const params = {
     dateSortie: texte(fd.get('dateSortie')),
     motif: texte(fd.get('motif')) as MotifSortie,
