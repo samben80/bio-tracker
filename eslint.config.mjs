@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // application de paie autonome, avec sa propre configuration
+    "paie-maroc/**",
   ]),
 ]);
 
