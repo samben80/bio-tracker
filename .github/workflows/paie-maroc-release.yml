@@ -1,0 +1,55 @@
+name: Paie Maroc - publier une version
+
+# Lancement : onglet Actions > « Paie Maroc - publier une version » > Run workflow.
+# Teste et construit l'application, fixe le numéro de version, crée le tag paie-vX.Y.Z
+# et la release GitHub. La version apparaît alors dans « Mises à jour » de la production,
+# où un administrateur l'installe d'un clic.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Numéro de version (X.Y.Z, ex. 1.2.0)'
+        required: true
+      notes:
+        description: 'Nouveautés (facultatif, complétées par la liste des changements)'
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Vérifier le numéro de version
+        run: |
+          echo "${{ inputs.version }}" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "Version invalide"; exit 1; }
+          if git ls-remote --exit-code --tags origin "paie-v${{ inputs.version }}"; then echo "Cette version existe déjà"; exit 1; fi
+      - name: Tests et build
+        working-directory: paie-maroc
+        run: |
+          npm ci
+          npm test
+          npm run build
+      - name: Fixer la version, taguer et publier
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          V="${{ inputs.version }}"
+          cd paie-maroc
+          npm version "$V" --no-git-tag-version --allow-same-version
+          cd ..
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add paie-maroc/package.json paie-maroc/package-lock.json
+          git commit -m "chore(paie): version $V" || true
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git tag "paie-v$V"
+          git push origin "paie-v$V"
+          gh release create "paie-v$V" --title "Paie Maroc $V" --notes "${NOTES:-Version $V}" --generate-notes --verify-tag
