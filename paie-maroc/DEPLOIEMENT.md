@@ -5,12 +5,12 @@ Deux environnements fonctionnent en parallèle, chacun avec sa propre base de do
 | | Production | Test |
 | --- | --- | --- |
 | Utilisateurs | Les gestionnaires de paie | L'équipe de développement |
-| Code | Branche `production`, déplacée uniquement par le bouton « Mises à jour » | Branche `main` et les autres branches, déployées à chaque commit |
-| Adresse | `https://<projet>.vercel.app` (ou votre domaine) | `https://<projet>-git-main-<compte>.vercel.app` |
+| Code | Branche `production`, déplacée uniquement par le bouton « Mises à jour » | Branche `master` et les autres branches, déployées à chaque commit |
+| Adresse | `https://<projet>.vercel.app` (ou votre domaine) | `https://<projet>-git-master-<compte>.vercel.app` |
 | Données | Base Neon de production, dossier vierge au départ | Base Neon de test, données de démonstration |
 
 ```
-développement ──push──▶ main ──▶ Vercel Preview (test)
+développement ──push──▶ master ──▶ Vercel Preview (test)
                          │
           « Publier une version » (GitHub Actions) ──▶ tag paie-vX.Y.Z + release
                                                         │
@@ -26,7 +26,7 @@ la nouvelle version, les utilisateurs continuent sur l'ancienne, puis la bascule
 1. vercel.com → **Add New… → Project** → importer le dépôt GitHub `samben80/bio-tracker`.
 2. **Root Directory** : `paie-maroc`. Framework : Next.js (détecté automatiquement).
 3. Après la création : **Settings → Environments → Production → Branch Tracking**. Choisir la branche `production`.
-   Les autres branches, dont `main`, deviennent des déploiements Preview.
+   Les autres branches, dont `master`, deviennent des déploiements Preview.
 
 ## 2. Créer les deux bases de données
 
@@ -52,7 +52,7 @@ Sans mot de passe défini, l'application refuse tout accès sur Vercel.
 
 ## 4. Publier la première version
 
-1. Fusionner le code dans `main`.
+1. Fusionner le code dans `master`.
 2. GitHub → **Actions → « Paie Maroc - publier une version » → Run workflow**, version `1.0.0`. Le workflow lance les tests et le build,
    fixe la version, crée le tag `paie-v1.0.0` et la release.
 3. Ouvrir l'adresse de test, se connecter en administrateur → **Mises à jour → Vérifier** → la version 1.0.0 apparaît.
@@ -63,7 +63,7 @@ Sans mot de passe défini, l'application refuse tout accès sur Vercel.
 
 ## Cycle de travail courant
 
-1. Développer sur une branche, ouvrir une pull request (les tests tournent automatiquement), puis fusionner dans `main`.
+1. Développer sur une branche, ouvrir une pull request (les tests tournent automatiquement), puis fusionner dans `master`.
 2. Vérifier sur l'adresse de test.
 3. Lancer « Publier une version » avec le numéro suivant (correctif : 1.0.1, nouveautés : 1.1.0).
 4. Dans la production : **Mises à jour → Vérifier → Installer**, après avoir téléchargé une sauvegarde.
